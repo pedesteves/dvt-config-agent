@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dvt-agent"
+version = "0.1.0"
+description = "Google ADK agent that builds Data Validation Tool YAML configs from natural language."
+requires-python = ">=3.11"
+dependencies = [
+    "google-adk==2.0.0b1",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["dvt_agent*"]
