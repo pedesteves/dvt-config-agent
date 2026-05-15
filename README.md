@@ -19,7 +19,7 @@ The agent generates configs only — you run them yourself with
 Requires Python 3.11+.
 
 ```bash
-cd /home/admin_pedroesteves_altostrat_com/agent
+cd /home/agent (change to where the agent is installed)
 pip install -e .
 cp .env.example .env
 # edit .env to add a real GOOGLE_API_KEY (or Vertex AI vars)
