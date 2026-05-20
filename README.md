@@ -25,8 +25,8 @@ cp .env.example .env
 # edit .env to add a real GOOGLE_API_KEY (or Vertex AI vars)
 ```
 
-`google-adk` is pinned to `2.0.0b1`. The 2.0 line is beta — alphas had
-breaking changes, so do not let pip resolve a different version.
+`google-adk` is pinned to `2.0.0b1`. The 2.0 line is beta.
+
 
 ## Run
 

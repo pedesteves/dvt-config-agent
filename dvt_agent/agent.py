@@ -38,7 +38,7 @@ politely and explain the BigQuery-only scope of this agent.
 
 root_agent = Agent(
     name="dvt_config_builder",
-    model="gemini-flash-latest",
+    model="gemini-3.5-flash",
     description="Builds Data Validation Tool YAML configs from natural language.",
     instruction=INSTRUCTION,
     tools=[
