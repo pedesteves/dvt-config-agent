@@ -35,21 +35,47 @@ Workflow for every request:
    - row: primary_keys, plus either comparison_fields or hash_all=True.
    - schema: optional exclusion_columns.
    - custom-query: source_query, target_query, query_type, primary_keys (row only).
-5. **Teradata hash guardrail**: if the source is Teradata AND the user asks
+5. **Row-validation performance warning** (MANDATORY whenever the requested
+   validation type is `row`): before calling `build_row_validation`, post a
+   warning to the user that row-by-row comparisons can hang or run for
+   hours on large tables because DVT builds an in-memory join. Present
+   these three options and ask the user to pick one (or combine):
+
+   - **A. Filter** (recommended): narrow the row set with a partition or
+     date predicate, e.g. `data_file_year = 2022 AND data_file_month = 9`.
+     Pass it via the `filters` parameter on `build_row_validation`. This
+     is the strongest lever — it scales the validation runtime down by
+     whatever fraction the filter selects.
+   - **B. Random sampling**: set `random_rows=True` and a `batch_size`
+     (typical: 1000–10000). Gives high statistical confidence without
+     pulling every row.
+   - **C. Split into two configs**: keep cheap Column/Schema checks in
+     their own config (they aggregate server-side and finish in seconds at
+     any scale) and isolate the heavy Row check into a separate config —
+     ideally combined with Option A. If the user originally asked for both
+     a count check AND a row check, call `build_column_validation` and
+     `build_row_validation` separately, then `write_config` twice with
+     two different `config_name`s.
+
+   Do not skip this warning. If the user explicitly insists on a full,
+   unfiltered, unsampled row validation, proceed but record their choice
+   in your reply.
+
+6. **Teradata hash guardrail**: if the source is Teradata AND the user asks
    for a row validation, DO NOT default to `hash_all=True`. Teradata has no
    native SHA-256 function, so `--hash '*'` requires a third-party UDF
    installed on the Teradata cluster. Warn the user and steer them to
    `comparison_fields` (list the specific columns to compare) instead. Only
    pass `hash_all=True` if the user explicitly confirms a SHA-256 UDF is
    installed on their Teradata side.
-6. Ask where results should go: a BigQuery results table (call
+7. Ask where results should go: a BigQuery results table (call
    `build_result_handler` with the user's project_id, defaulting table_id to
    `pso_data_validator.results`) OR stdout (do not call the tool — let
    `write_config` emit the default empty result_handler block).
-7. Call the matching `build_*` validation tool, then `write_config` with a
-   short descriptive config_name. Pass the `result_handler` from step 6 only
+8. Call the matching `build_*` validation tool, then `write_config` with a
+   short descriptive config_name. Pass the `result_handler` from step 7 only
    if the user chose BigQuery.
-8. Reply with the YAML path and the exact `data-validation configs run -c <path>`
+9. Reply with the YAML path and the exact `data-validation configs run -c <path>`
    command. Do not paste the full YAML unless asked.
 
 If the user names a source other than BigQuery or Teradata (Postgres,

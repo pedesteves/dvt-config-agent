@@ -198,6 +198,35 @@ def test_row_validation_requires_one_of_hash_or_fields():
     assert result["status"] == "error"
 
 
+def test_row_validation_with_filter():
+    result = tools.build_row_validation(
+        source_table="p.d.orders",
+        target_table="p.d.orders",
+        primary_keys=["order_id"],
+        comparison_fields=["status"],
+        filters=["data_file_year = 2022 AND data_file_month = 9"],
+    )
+    assert result["status"] == "success"
+    v = result["validation"]
+    assert v["filters"] == [
+        {
+            "source": "data_file_year = 2022 AND data_file_month = 9",
+            "target": "data_file_year = 2022 AND data_file_month = 9",
+            "type": "custom",
+        }
+    ]
+
+
+def test_row_validation_no_filters_key_when_omitted():
+    result = tools.build_row_validation(
+        source_table="p.d.orders",
+        target_table="p.d.orders",
+        primary_keys=["order_id"],
+        hash_all=True,
+    )
+    assert "filters" not in result["validation"]
+
+
 # --- schema validation -------------------------------------------------------
 
 def test_schema_validation_basic():

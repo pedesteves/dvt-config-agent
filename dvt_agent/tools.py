@@ -143,6 +143,7 @@ def build_row_validation(
     hash_all: bool = False,
     random_rows: bool = False,
     batch_size: int | None = None,
+    filters: list[str] | None = None,
     threshold: float = 0.0,
 ) -> dict[str, Any]:
     """Build a single Row-validation entry.
@@ -158,6 +159,11 @@ def build_row_validation(
         random_rows: If true, sample random rows instead of comparing all.
         batch_size: Row count per random batch (only meaningful when
             random_rows=True).
+        filters: Optional list of SQL filter expressions applied to both
+            source and target before comparison. The single biggest lever
+            for keeping row validations from hanging on large tables —
+            partition/date predicates are ideal.
+            Example: `["data_file_year = 2022 AND data_file_month = 9"]`.
         threshold: Allowed percentage of mismatched rows before failing.
 
     Returns:
@@ -205,6 +211,10 @@ def build_row_validation(
         ]
     if random_rows and batch_size is not None:
         validation["random_row_batch_size"] = str(batch_size)
+    if filters:
+        validation["filters"] = [
+            {"source": expr, "target": expr, "type": "custom"} for expr in filters
+        ]
 
     return {"status": "success", "validation": validation}
 
