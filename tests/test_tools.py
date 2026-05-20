@@ -140,16 +140,42 @@ def test_row_validation_with_comparison_fields():
     assert "hash" not in v
 
 
-def test_row_validation_never_emits_hash_wildcard():
+def test_row_validation_with_hash_columns():
+    """hash_columns must serialize as a comma-separated string under `hash:`."""
+    result = tools.build_row_validation(
+        source_table="p.d.orders",
+        target_table="p.d.orders",
+        primary_keys=["order_id"],
+        hash_columns=["status", "total", "updated_at"],
+    )
+    assert result["status"] == "success"
+    v = result["validation"]
+    assert v["hash"] == "status,total,updated_at"
+    assert "comparison_fields" not in v
+
+
+def test_row_validation_hash_columns_rejects_wildcard():
     """Regression guard: DVT's YAML loader can't expand `hash: '*'`."""
     result = tools.build_row_validation(
         source_table="p.d.orders",
         target_table="p.d.orders",
         primary_keys=["order_id"],
-        comparison_fields=["status", "total"],
+        hash_columns=["*"],
     )
-    assert result["status"] == "success"
-    assert "hash" not in result["validation"]
+    assert result["status"] == "error"
+    assert "*" in result["error"]
+
+
+def test_row_validation_hash_and_comparison_mutually_exclusive():
+    result = tools.build_row_validation(
+        source_table="p.d.orders",
+        target_table="p.d.orders",
+        primary_keys=["order_id"],
+        hash_columns=["status"],
+        comparison_fields=["total"],
+    )
+    assert result["status"] == "error"
+    assert "hash_columns" in result["error"]
 
 
 def test_row_validation_random_rows_with_batch():
@@ -177,14 +203,14 @@ def test_row_validation_requires_primary_keys():
     assert result["status"] == "error"
 
 
-def test_row_validation_requires_comparison_fields():
+def test_row_validation_requires_hash_or_comparison_fields():
     result = tools.build_row_validation(
         source_table="p.d.orders",
         target_table="p.d.orders",
         primary_keys=["id"],
-        comparison_fields=[],
     )
     assert result["status"] == "error"
+    assert "hash_columns" in result["error"]
     assert "comparison_fields" in result["error"]
 
 

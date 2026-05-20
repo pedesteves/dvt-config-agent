@@ -25,9 +25,14 @@ will not invent or create them.
 ### Row validations always use explicit columns
 
 The agent never emits `hash: '*'` — DVT's YAML loader doesn't expand the
-wildcard, so configs with it crash at runtime. If you ask to "compare all
-columns" the agent will ask for the explicit list and produce
-`comparison_fields:` instead.
+wildcard at config-load time (only the CLI does that lookup), so a stored
+config containing `hash: '*'` crashes at runtime with
+`TypeError: reduce() of empty iterable with no initial value`.
+
+If you ask to "hash all columns" or "compare all columns" the agent will
+ask for the explicit list and emit one of:
+- `hash: "col1,col2,..."` (default — single SHA-256 equality check), or
+- `comparison_fields:` (per-column mismatch reporting) when you ask for it.
 
 ## Install
 
@@ -67,8 +72,9 @@ Both commands must be run from this directory (the parent of `dvt_agent/`).
   → produces a Column validation with a `count` aggregate.
 
 - *Row-compare `my-project.ds.orders` against `my-project-tgt.ds.orders`,
-  primary key `order_id`, comparing `status` and `total`, conn `bq_conn`.*
-  → produces a Row validation with explicit `comparison_fields`.
+  primary key `order_id`, hashing `status` and `total`, conn `bq_conn`.*
+  → produces a Row validation with `hash: "status,total"`. Ask for
+  `comparison_fields` instead if you want per-column mismatch reporting.
 
 - *Validate the schema matches between `project_a.ds.users` and `project_b.ds.users`.*
   → produces a Schema validation.

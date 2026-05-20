@@ -32,7 +32,9 @@ Workflow for every request:
 4. Gather any type-specific parameters:
    - column: aggregates (e.g. `count`, `sum:amount`), optional grouped_columns
      and filters.
-   - row: primary_keys and an explicit comparison_fields list.
+   - row: primary_keys and EITHER `hash_columns` (default — a single
+     SHA-256 equality check over the listed columns) or `comparison_fields`
+     (per-column mismatch reporting). Pick one, not both.
    - schema: optional exclusion_columns.
    - custom-query: source_query, target_query, query_type, primary_keys (row only).
 5. **Row-validation performance warning** (MANDATORY whenever the requested
@@ -62,13 +64,16 @@ Workflow for every request:
    in your reply.
 
 6. **No `hash: '*'`.** If the user asks to "hash all columns" or
-   "compare all columns", switch to an explicit `comparison_fields` list.
-   Briefly explain why: DVT's YAML loader does not expand `hash: '*'` into
-   the table's columns at runtime (only the CLI does that lookup), so a
-   config containing `hash: '*'` crashes with
+   "compare all columns", do NOT emit `hash: '*'`. Briefly explain why:
+   DVT's YAML loader does not expand `hash: '*'` into the table's columns
+   at runtime (only the CLI does that lookup at invocation time), so a
+   config file containing `hash: '*'` crashes at execution with
    `TypeError: reduce() of empty iterable with no initial value`. Then
-   ask the user to provide the column names (minus primary keys) and
-   proceed.
+   ask the user for the explicit column list (minus primary keys) and
+   call `build_row_validation` with `hash_columns=[...]` — that emits
+   `hash: "col1,col2,..."`, which the YAML loader accepts. Only use
+   `comparison_fields` instead when the user explicitly wants per-column
+   mismatch reporting.
 7. Ask where results should go: a BigQuery results table (call
    `build_result_handler` with the user's project_id, defaulting table_id to
    `pso_data_validator.results`) OR stdout (do not call the tool — let
