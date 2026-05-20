@@ -17,22 +17,31 @@ import yaml
 CONFIGS_DIR = Path(__file__).parent / "configs"
 
 _AGGREGATE_TYPES = {"count", "sum", "avg", "min", "max", "bit_xor"}
-_TABLE_RE = re.compile(r"^[A-Za-z0-9_\-]+\.[A-Za-z0-9_]+\.[A-Za-z0-9_]+$")
+_TABLE_RE_BQ = re.compile(r"^[A-Za-z0-9_\-]+\.[A-Za-z0-9_]+\.[A-Za-z0-9_]+$")
+_TABLE_RE_TWO_PART = re.compile(r"^[A-Za-z0-9_]+\.[A-Za-z0-9_]+$")
 _CONFIG_NAME_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
 
 
 def _split_table(qualified: str) -> tuple[str, str]:
-    """Split `project.dataset.table` into (`project.dataset`, `table`).
+    """Split a qualified table name into (`schema_name`, `table_name`).
 
-    DVT's YAML uses `schema_name` for the dataset (with project prefix) and
-    `table_name` for the bare table.
+    Accepts two forms:
+      - `project.dataset.table` (BigQuery): schema = `project.dataset`.
+      - `database.table` (Teradata, MySQL, Postgres, etc.): schema = `database`.
+
+    DVT puts whatever precedes the final dot into `schema_name` and the
+    final segment into `table_name`.
     """
-    if not _TABLE_RE.match(qualified):
-        raise ValueError(
-            f"Expected fully-qualified BigQuery table 'project.dataset.table', got {qualified!r}"
-        )
-    project, dataset, table = qualified.split(".")
-    return f"{project}.{dataset}", table
+    if _TABLE_RE_BQ.match(qualified):
+        project, dataset, table = qualified.split(".")
+        return f"{project}.{dataset}", table
+    if _TABLE_RE_TWO_PART.match(qualified):
+        schema, table = qualified.split(".")
+        return schema, table
+    raise ValueError(
+        "Expected 'project.dataset.table' (BigQuery) or 'database.table' "
+        f"(Teradata etc.), got {qualified!r}"
+    )
 
 
 def _expand_aggregate(spec: str) -> dict[str, Any]:

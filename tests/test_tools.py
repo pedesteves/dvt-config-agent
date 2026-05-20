@@ -69,6 +69,41 @@ def test_column_validation_rejects_bad_table_format():
     assert "project.dataset.table" in result["error"]
 
 
+def test_column_validation_teradata_source_bq_target():
+    """Source is Teradata (db.table); target is BigQuery (project.dataset.table)."""
+    result = tools.build_column_validation(
+        source_table="sales_db.orders",
+        target_table="my-proj.warehouse.orders",
+        aggregates=["count"],
+    )
+    assert result["status"] == "success"
+    v = result["validation"]
+    assert v["schema_name"] == "sales_db"
+    assert v["table_name"] == "orders"
+    assert v["target_schema_name"] == "my-proj.warehouse"
+    assert v["target_table_name"] == "orders"
+
+
+def test_split_table_two_part():
+    assert tools._split_table("sales_db.orders") == ("sales_db", "orders")
+
+
+def test_split_table_three_part():
+    assert tools._split_table("my-proj.ds.t") == ("my-proj.ds", "t")
+
+
+def test_split_table_rejects_single_segment():
+    import pytest
+    with pytest.raises(ValueError):
+        tools._split_table("just_a_table")
+
+
+def test_split_table_rejects_four_segments():
+    import pytest
+    with pytest.raises(ValueError):
+        tools._split_table("a.b.c.d")
+
+
 def test_column_validation_rejects_unknown_aggregate():
     result = tools.build_column_validation(
         source_table="p.d.t",
