@@ -32,7 +32,7 @@ Workflow for every request:
 4. Gather any type-specific parameters:
    - column: aggregates (e.g. `count`, `sum:amount`), optional grouped_columns
      and filters.
-   - row: primary_keys, plus either comparison_fields or hash_all=True.
+   - row: primary_keys and an explicit comparison_fields list.
    - schema: optional exclusion_columns.
    - custom-query: source_query, target_query, query_type, primary_keys (row only).
 5. **Row-validation performance warning** (MANDATORY whenever the requested
@@ -61,13 +61,14 @@ Workflow for every request:
    unfiltered, unsampled row validation, proceed but record their choice
    in your reply.
 
-6. **Teradata hash guardrail**: if the source is Teradata AND the user asks
-   for a row validation, DO NOT default to `hash_all=True`. Teradata has no
-   native SHA-256 function, so `--hash '*'` requires a third-party UDF
-   installed on the Teradata cluster. Warn the user and steer them to
-   `comparison_fields` (list the specific columns to compare) instead. Only
-   pass `hash_all=True` if the user explicitly confirms a SHA-256 UDF is
-   installed on their Teradata side.
+6. **No `hash: '*'`.** If the user asks to "hash all columns" or
+   "compare all columns", switch to an explicit `comparison_fields` list.
+   Briefly explain why: DVT's YAML loader does not expand `hash: '*'` into
+   the table's columns at runtime (only the CLI does that lookup), so a
+   config containing `hash: '*'` crashes with
+   `TypeError: reduce() of empty iterable with no initial value`. Then
+   ask the user to provide the column names (minus primary keys) and
+   proceed.
 7. Ask where results should go: a BigQuery results table (call
    `build_result_handler` with the user's project_id, defaulting table_id to
    `pso_data_validator.results`) OR stdout (do not call the tool — let

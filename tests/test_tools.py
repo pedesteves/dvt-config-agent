@@ -140,17 +140,16 @@ def test_row_validation_with_comparison_fields():
     assert "hash" not in v
 
 
-def test_row_validation_hash_all():
+def test_row_validation_never_emits_hash_wildcard():
+    """Regression guard: DVT's YAML loader can't expand `hash: '*'`."""
     result = tools.build_row_validation(
         source_table="p.d.orders",
         target_table="p.d.orders",
         primary_keys=["order_id"],
-        hash_all=True,
+        comparison_fields=["status", "total"],
     )
     assert result["status"] == "success"
-    v = result["validation"]
-    assert v["hash"] == "*"
-    assert "comparison_fields" not in v
+    assert "hash" not in result["validation"]
 
 
 def test_row_validation_random_rows_with_batch():
@@ -158,7 +157,7 @@ def test_row_validation_random_rows_with_batch():
         source_table="p.d.orders",
         target_table="p.d.orders",
         primary_keys=["order_id"],
-        hash_all=True,
+        comparison_fields=["status"],
         random_rows=True,
         batch_size=100,
     )
@@ -173,29 +172,32 @@ def test_row_validation_requires_primary_keys():
         source_table="p.d.orders",
         target_table="p.d.orders",
         primary_keys=[],
-        hash_all=True,
+        comparison_fields=["status"],
     )
     assert result["status"] == "error"
 
 
-def test_row_validation_rejects_hash_and_fields_together():
+def test_row_validation_requires_comparison_fields():
     result = tools.build_row_validation(
         source_table="p.d.orders",
         target_table="p.d.orders",
         primary_keys=["id"],
-        hash_all=True,
-        comparison_fields=["x"],
+        comparison_fields=[],
     )
     assert result["status"] == "error"
+    assert "comparison_fields" in result["error"]
 
 
-def test_row_validation_requires_one_of_hash_or_fields():
-    result = tools.build_row_validation(
-        source_table="p.d.orders",
-        target_table="p.d.orders",
-        primary_keys=["id"],
-    )
-    assert result["status"] == "error"
+def test_row_validation_no_hash_all_parameter():
+    """The hash_all kwarg was removed — calling with it must TypeError."""
+    import pytest
+    with pytest.raises(TypeError):
+        tools.build_row_validation(
+            source_table="p.d.orders",
+            target_table="p.d.orders",
+            primary_keys=["id"],
+            hash_all=True,  # type: ignore[call-arg]
+        )
 
 
 def test_row_validation_with_filter():
@@ -222,7 +224,7 @@ def test_row_validation_no_filters_key_when_omitted():
         source_table="p.d.orders",
         target_table="p.d.orders",
         primary_keys=["order_id"],
-        hash_all=True,
+        comparison_fields=["status"],
     )
     assert "filters" not in result["validation"]
 

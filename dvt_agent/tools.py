@@ -139,8 +139,7 @@ def build_row_validation(
     source_table: str,
     target_table: str,
     primary_keys: list[str],
-    comparison_fields: list[str] | None = None,
-    hash_all: bool = False,
+    comparison_fields: list[str],
     random_rows: bool = False,
     batch_size: int | None = None,
     filters: list[str] | None = None,
@@ -148,14 +147,27 @@ def build_row_validation(
 ) -> dict[str, Any]:
     """Build a single Row-validation entry.
 
+    NOTE: This tool deliberately does NOT support DVT's `hash: '*'`
+    wildcard. The DVT YAML loader does not expand `'*'` into the table's
+    column list at runtime (only the CLI does), so a config with
+    `hash: '*'` fails at execution with:
+
+        TypeError: reduce() of empty iterable with no initial value
+
+    To compare every column, ask the user to enumerate them explicitly in
+    `comparison_fields` (minus the primary keys). For BigQuery the user
+    can fetch the list with:
+
+        SELECT column_name
+        FROM `project.dataset`.INFORMATION_SCHEMA.COLUMNS
+        WHERE table_name = '<table>';
+
     Args:
         source_table: Fully-qualified source table.
         target_table: Fully-qualified target table.
         primary_keys: Column names that uniquely identify a row in both tables.
-        comparison_fields: Specific columns to compare row-by-row. Mutually
-            exclusive with hash_all.
-        hash_all: If true, hash every column (DVT's `--hash '*'`). Use this
-            when you want a full row-equality check without listing columns.
+        comparison_fields: Explicit list of columns to compare row-by-row.
+            Required and non-empty — there is no wildcard option.
         random_rows: If true, sample random rows instead of comparing all.
         batch_size: Row count per random batch (only meaningful when
             random_rows=True).
@@ -171,15 +183,16 @@ def build_row_validation(
     """
     if not primary_keys:
         return {"status": "error", "error": "primary_keys is required for row validation."}
-    if hash_all and comparison_fields:
+    if not comparison_fields:
         return {
             "status": "error",
-            "error": "Use either hash_all OR comparison_fields, not both.",
-        }
-    if not hash_all and not comparison_fields:
-        return {
-            "status": "error",
-            "error": "Provide comparison_fields, or set hash_all=True to hash every column.",
+            "error": (
+                "comparison_fields is required and must be a non-empty list of "
+                "column names. DVT's YAML loader does NOT expand `hash: '*'` "
+                "into a column list, so wildcards are not supported here. Ask "
+                "the user to enumerate the columns to compare (excluding the "
+                "primary keys)."
+            ),
         }
 
     try:
@@ -198,17 +211,14 @@ def build_row_validation(
             {"cast": None, "field_alias": pk, "source_column": pk, "target_column": pk}
             for pk in primary_keys
         ],
+        "comparison_fields": [
+            {"cast": None, "field_alias": col, "source_column": col, "target_column": col}
+            for col in comparison_fields
+        ],
         "threshold": threshold,
         "format": "table",
         "use_random_rows": random_rows,
     }
-    if hash_all:
-        validation["hash"] = "*"
-    else:
-        validation["comparison_fields"] = [
-            {"cast": None, "field_alias": col, "source_column": col, "target_column": col}
-            for col in comparison_fields  # type: ignore[union-attr]
-        ]
     if random_rows and batch_size is not None:
         validation["random_row_batch_size"] = str(batch_size)
     if filters:

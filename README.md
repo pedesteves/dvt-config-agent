@@ -22,22 +22,12 @@ Connections must already be registered via
 `data-validation connections add` — the agent references them by name and
 will not invent or create them.
 
-### Teradata caveat: row validations and hashing
+### Row validations always use explicit columns
 
-Teradata has **no native SHA-256** function, so DVT's `--hash '*'`
-(`hash_all=True` in this agent) only works if a third-party SHA-256 UDF is
-installed on your Teradata cluster — see
-[DVT's limitations doc](https://github.com/GoogleCloudPlatform/professional-services-data-validator/blob/develop/docs/limitations.md).
-
-The agent will warn you and steer toward `comparison_fields` (explicit
-column list) for Teradata row validations. Only confirm `hash_all` if you
-know the UDF is installed; otherwise:
-
-> *"Row-compare `my_td_db.orders` against `my-proj.staging.orders`, primary
-> key `order_id`, comparing `status` and `total`."*
-
-This produces a Row validation with `comparison_fields: [status, total]`
-instead of `hash: '*'`.
+The agent never emits `hash: '*'` — DVT's YAML loader doesn't expand the
+wildcard, so configs with it crash at runtime. If you ask to "compare all
+columns" the agent will ask for the explicit list and produce
+`comparison_fields:` instead.
 
 ## Install
 
@@ -76,9 +66,9 @@ Both commands must be run from this directory (the parent of `dvt_agent/`).
   and `my-project.staging.citibike_stations` using connection `bq_conn` for both.*
   → produces a Column validation with a `count` aggregate.
 
-- *Hash every column of `my-project.ds.orders` against `my-project-tgt.ds.orders`,
-  primary key `order_id`, conn name `bq_conn`.*
-  → produces a Row validation with `hash: '*'`.
+- *Row-compare `my-project.ds.orders` against `my-project-tgt.ds.orders`,
+  primary key `order_id`, comparing `status` and `total`, conn `bq_conn`.*
+  → produces a Row validation with explicit `comparison_fields`.
 
 - *Validate the schema matches between `project_a.ds.users` and `project_b.ds.users`.*
   → produces a Schema validation.
