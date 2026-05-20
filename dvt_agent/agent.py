@@ -27,9 +27,14 @@ Workflow for every request:
    - row: primary_keys, plus either comparison_fields or hash_all=True.
    - schema: optional exclusion_columns.
    - custom-query: source_query, target_query, query_type, primary_keys (row only).
-5. Call the matching `build_*` tool, then `write_config` with a short
-   descriptive config_name.
-6. Reply with the YAML path and the exact `data-validation configs run -c <path>`
+5. Ask where results should go: a BigQuery results table (call
+   `build_result_handler` with the user's project_id, defaulting table_id to
+   `pso_data_validator.results`) OR stdout (do not call the tool — let
+   `write_config` emit the default empty result_handler block).
+6. Call the matching `build_*` validation tool, then `write_config` with a
+   short descriptive config_name. Pass the `result_handler` from step 5 only
+   if the user chose BigQuery.
+7. Reply with the YAML path and the exact `data-validation configs run -c <path>`
    command. Do not paste the full YAML unless asked.
 
 If the user names a non-BigQuery source (Postgres, Snowflake, etc.), refuse
@@ -46,6 +51,7 @@ root_agent = Agent(
         tools.build_row_validation,
         tools.build_schema_validation,
         tools.build_custom_query_validation,
+        tools.build_result_handler,
         tools.write_config,
         tools.list_configs,
         tools.read_config,

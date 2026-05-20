@@ -5,7 +5,8 @@
       "WebFetch(domain:google.github.io)",
       "WebFetch(domain:pypi.org)",
       "WebFetch(domain:adk.dev)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(python3 *)"
     ]
   }
 }

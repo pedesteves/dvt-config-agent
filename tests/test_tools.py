@@ -225,6 +225,33 @@ def test_custom_query_row_with_pk():
     assert result["validation"]["primary_keys"][0]["source_column"] == "id"
 
 
+# --- result_handler ----------------------------------------------------------
+
+def test_build_result_handler_defaults():
+    result = tools.build_result_handler(project_id="my-proj")
+    assert result["status"] == "success"
+    assert result["result_handler"] == {
+        "type": "BigQuery",
+        "project_id": "my-proj",
+        "table_id": "pso_data_validator.results",
+    }
+
+
+def test_build_result_handler_custom_table():
+    result = tools.build_result_handler(project_id="p", table_id="ds.tbl")
+    assert result["result_handler"]["table_id"] == "ds.tbl"
+
+
+def test_build_result_handler_requires_project():
+    assert tools.build_result_handler(project_id="")["status"] == "error"
+
+
+def test_build_result_handler_rejects_qualified_table_id():
+    # project_id is a separate field; users must not include it in table_id.
+    result = tools.build_result_handler(project_id="p", table_id="proj.ds.tbl")
+    assert result["status"] == "error"
+
+
 # --- write_config / list_configs / read_config -------------------------------
 
 def test_write_then_read_roundtrip(tmp_path, monkeypatch):
@@ -252,7 +279,8 @@ def test_write_then_read_roundtrip(tmp_path, monkeypatch):
     assert readback["contents"]["source"] == "bq_conn"
     assert readback["contents"]["target"] == "bq_conn"
     assert readback["contents"]["validations"][0]["type"] == "Column"
-    assert "result_handler" not in readback["contents"]
+    # result_handler must always be present — empty mapping means stdout.
+    assert readback["contents"]["result_handler"] == {}
 
 
 def test_write_with_result_handler(tmp_path, monkeypatch):
@@ -278,6 +306,28 @@ def test_write_with_result_handler(tmp_path, monkeypatch):
     assert on_disk["result_handler"]["table_id"] == "pso_data_validator.results"
     # Ordering matters for human readability: result_handler should come first.
     assert list(on_disk.keys())[0] == "result_handler"
+
+
+def test_write_config_emits_empty_result_handler_when_none(tmp_path, monkeypatch):
+    """DVT errors if `result_handler:` is absent — we must always emit the key."""
+    monkeypatch.setattr(tools, "CONFIGS_DIR", tmp_path)
+
+    col = tools.build_column_validation(
+        source_table="p.d.t", target_table="p.d.t", aggregates=["count"],
+    )["validation"]
+
+    tools.write_config(
+        config_name="stdout_default",
+        source_conn="bq", target_conn="bq",
+        validations=[col],
+    )
+
+    raw = (tmp_path / "stdout_default.yaml").read_text()
+    on_disk = yaml.safe_load(raw)
+    assert "result_handler" in on_disk
+    assert on_disk["result_handler"] == {}
+    # Confirm the key actually appears in the serialized text (not just the parsed view).
+    assert "result_handler:" in raw
 
 
 def test_write_rejects_bad_name(tmp_path, monkeypatch):

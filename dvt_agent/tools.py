@@ -277,6 +277,46 @@ def build_custom_query_validation(
     return {"status": "success", "validation": validation}
 
 
+def build_result_handler(
+    project_id: str,
+    table_id: str = "pso_data_validator.results",
+) -> dict[str, Any]:
+    """Build a BigQuery result_handler block.
+
+    DVT writes one row per validation to this table. Use this when you want
+    persistent, queryable results instead of stdout-only output. For the
+    stdout case, omit `result_handler` from write_config — it will default
+    to an empty mapping, which DVT interprets as "print to stdout".
+
+    Args:
+        project_id: GCP project that owns the destination table.
+        table_id: Destination table in `dataset.table` form. Defaults to
+            `pso_data_validator.results`, the convention used in the DVT
+            docs. The dataset must already exist; DVT creates the table on
+            first run.
+
+    Returns:
+        A dict with `status` plus a `result_handler` key suitable for
+        passing straight to `write_config`.
+    """
+    if not project_id:
+        return {"status": "error", "error": "project_id is required."}
+    if table_id.count(".") != 1:
+        return {
+            "status": "error",
+            "error": "table_id must be in 'dataset.table' form (no project prefix).",
+        }
+
+    return {
+        "status": "success",
+        "result_handler": {
+            "type": "BigQuery",
+            "project_id": project_id,
+            "table_id": table_id,
+        },
+    }
+
+
 def write_config(
     config_name: str,
     source_conn: str,
@@ -286,6 +326,11 @@ def write_config(
 ) -> dict[str, Any]:
     """Serialize a complete DVT config to YAML on disk.
 
+    The output YAML always contains a top-level `result_handler:` key. If
+    you do not pass one, an empty mapping is emitted, which DVT treats as
+    "print results to stdout" — DVT errors out if the key is missing
+    entirely, so we always write it.
+
     Args:
         config_name: File basename (no extension). Letters, digits, _ and - only.
         source_conn: Name of a source connection the user has already
@@ -293,8 +338,8 @@ def write_config(
         target_conn: Name of the target connection.
         validations: List of validation dicts (each from a build_* tool's
             `validation` key).
-        result_handler: Optional `{"type": "BigQuery", "project_id": ...,
-            "table_id": "dataset.table"}` to persist results.
+        result_handler: Optional dict from `build_result_handler`. Leave
+            unset to default to `{}` (stdout output).
 
     Returns:
         A dict with `status`, `path` (absolute YAML path), and `run_command`
@@ -308,12 +353,12 @@ def write_config(
     if not validations:
         return {"status": "error", "error": "validations list is empty."}
 
-    config: dict[str, Any] = {}
-    if result_handler:
-        config["result_handler"] = result_handler
-    config["source"] = source_conn
-    config["target"] = target_conn
-    config["validations"] = validations
+    config: dict[str, Any] = {
+        "result_handler": result_handler if result_handler else {},
+        "source": source_conn,
+        "target": target_conn,
+        "validations": validations,
+    }
 
     CONFIGS_DIR.mkdir(parents=True, exist_ok=True)
     out_path = CONFIGS_DIR / f"{config_name}.yaml"
