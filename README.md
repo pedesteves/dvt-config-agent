@@ -34,6 +34,8 @@ ask for the explicit list and emit one of:
 - `hash: "col1,col2,..."` (default — single SHA-256 equality check), or
 - `comparison_fields:` (per-column mismatch reporting) when you ask for it.
 
+#Note If you plan to perform row level hashing on Teradata, you might need to install a UDF that implements sha256 on your Teradata instance as some versions don't support it. 
+
 ## Install
 
 Requires Python 3.11+.
@@ -45,7 +47,7 @@ cp .env.example .env
 # edit .env to add a real GOOGLE_API_KEY (or Vertex AI vars)
 ```
 
-`google-adk` is pinned to `2.0.0b1`. The 2.0 line is beta.
+`google-adk` is pinned to `2.0.0b1` which is currently Beta.
 
 
 ## Run
