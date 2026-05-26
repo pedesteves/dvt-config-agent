@@ -34,7 +34,7 @@ ask for the explicit list and emit one of:
 - `hash: "col1,col2,..."` (default — single SHA-256 equality check), or
 - `comparison_fields:` (per-column mismatch reporting) when you ask for it.
 
-#Note If you plan to perform row level hashing on Teradata, you might need to install a UDF that implements sha256 on your Teradata instance as some versions don't support it. 
+# Note If you plan to perform row level hashing on Teradata, you might need to install a UDF that implements sha256 on your Teradata instance as some versions don't support it. 
 
 ## Install
 
